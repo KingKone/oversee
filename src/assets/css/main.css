@@ -30,7 +30,7 @@ body {
 }
 
 .pad {
-    padding: 3em;
+    padding: 1em;
     
     
 }
@@ -68,4 +68,7 @@ body {
 
 .cusymb h1 {
     font-weight: bold;
+}
+.thoff {
+    display: none;
 }

@@ -1,6 +1,8 @@
 import '../assets/css/main.css';
+
 import React, { Component } from 'react';
 import Currency from './Currency.js';
+import Cutab from './Cutab.js';
 
 import { ipcRenderer } from 'electron';
 //ipcRenderer.send('bla', {bla: 'bla'});
@@ -31,7 +33,7 @@ class App extends React.Component {
     return (
       <div className="pad" >
         {this.state.currencies.map(curr => (
-          <Currency key={curr.id} data={curr}/>
+          <Cutab key={curr.id} data={curr}/>
         ))}
         
       </div>
