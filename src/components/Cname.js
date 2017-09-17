@@ -93,7 +93,7 @@ class Cname extends Component {
     const { nClick, name, data, isOver, connectDropTarget } = this.props
     const { high } = this.state
    
-
+ 
     function style () {
       if (data.psec != null && isOver) return (  { 'color': '#11c8ce' } )
       if (high) return (  { 'color': 'rgba(17,200,208,0.8' } ) 
