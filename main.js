@@ -1,332 +1,449 @@
-'use strict';
-
-// Import parts of electron to use
-const {app, BrowserWindow} = require('electron');
+'use strict'
+const {app, BrowserWindow} = require('electron')
 const path = require('path')
 const url = require('url')
 const ipcMain = require('electron').ipcMain
-const request = require('request');
+const request = require('request')
+const mysql = require('mysql')
 
-/* const bittrex = require('node.bittrex.api')
+var connection = mysql.createConnection({
+    host     : '...',
+    user     : '...',
+    password : '...',
+    database : '...',
+    multipleStatements: false
+  })
 
-bittrex.options({
-  'apikey' : '...',
-  'apisecret' : '... ', 
-});
-*/
+let mainWindow
 
-var CoinMarketCap = require("node-coinmarketcap");
-var options = {
-  events: true, // Enable event system
-  refresh: 120, // Refresh time in seconds (Default: 60)
-  convert: "EUR" // Convert price to different currencies. (Default USD)
-}
-//var coinmarketcap = new CoinMarketCap(options);
-
-
-// Keep a global reference of the window object, if you don't, the window will
-// be closed automatically when the JavaScript object is garbage collected.
-let mainWindow;
-
-// Keep a reference for dev mode
-let dev = false;
+let dev = false
 if ( process.defaultApp || /[\\/]electron-prebuilt[\\/]/.test(process.execPath) || /[\\/]electron[\\/]/.test(process.execPath) ) {
-  dev = true;
+  dev = true
 }
 
 function createWindow() {
-  // Create the browser window.
-  mainWindow = new BrowserWindow({
-    width: 1060, height: 800, show: false, frame: true
-  });
+  mainWindow = new BrowserWindow({ width: 1500, height: 800, show: false, frame: true })
+  mainWindow.webContents.on('did-finish-load',() => {
+    mainWindow.setTitle('Oversee - Proof of Concept')
+  })
 
-  // and load the index.html of the app.
-  let indexPath;
+  let indexPath
   if ( dev && process.argv.indexOf('--noDevServer') === -1 ) {
     indexPath = url.format({
       protocol: 'http:',
       host: 'localhost:8080',
       pathname: 'index.html',
       slashes: true
-    });
+    })
   } else {
     indexPath = url.format({
       protocol: 'file:',
       pathname: path.join(__dirname, 'dist', 'index.html'),
       slashes: true
-    });
+    })
   }
-  mainWindow.loadURL( indexPath );
+  mainWindow.loadURL( indexPath )
 
-  // Don't show until we are ready and loaded
   mainWindow.once('ready-to-show', () => {
-    mainWindow.show();
-    // Open the DevTools automatically if developing
+    mainWindow.show()
+    getData()
     if ( dev ) {
-      mainWindow.webContents.openDevTools();
+      mainWindow.webContents.openDevTools()
     }
-  });
+  })
 
-  // Emitted when the window is closed.
   mainWindow.on('closed', function() {
-    // Dereference the window object, usually you would store windows
-    // in an array if your app supports multi windows, this is the time
-    // when you should delete the corresponding element.
-    mainWindow = null;
-  });
+    mainWindow = null
+  })
 }
 
-// This method will be called when Electron has finished
-// initialization and is ready to create browser windows.
-// Some APIs can only be used after this event occurs.
-app.on('ready', createWindow);
+app.on('ready', createWindow)
 
-// Quit when all windows are closed.
 app.on('window-all-closed', () => {
-  // On macOS it is common for applications and their menu bar
-  // to stay active until the user quits explicitly with Cmd + Q
   if (process.platform !== 'darwin') {
-    app.quit();
+    app.quit()
   }
-});
+})
 
-app.on('activate', () => {
-  // On macOS it's common to re-create a window in the app when the
-  // dock icon is clicked and there are no other windows open.
+app.on('activate', () => { 
   if (mainWindow === null) {
-    createWindow();
+    createWindow()
   }
-});
-
-// --------------------------------------------------------------------- cmc 
-let cmcCurrencies = [];
-ipcMain.on('cmc-go', function(event, arg) {
-/*  request('https://api.coinmarketcap.com/v1/ticker/?convert=EUR&limit=10', function (error, response, body) {
-    console.log(body);
-  }); */
-  console.log(arg);
-  cmcCurrencies = [
-      {
-          "id": "bitcoin",
-          "name": "Bitcoin",
-          "symbol": "BTC",
-          "rank": "1",
-          "price_usd": "4715.97",
-          "price_btc": "1.0",
-          "24h_volume_usd": "1933500000.0",
-          "market_cap_usd": "77982100928.0",
-          "available_supply": "16535750.0",
-          "total_supply": "16535750.0",
-          "percent_change_1h": "0.41",
-          "percent_change_24h": "3.7",
-          "percent_change_7d": "10.1",
-          "last_updated": "1504213774",
-          "price_eur": "3969.49797258",
-          "24h_volume_eur": "1627454019.0",
-          "market_cap_eur": "65638626100.0"
-      },
-      {
-          "id": "ethereum",
-          "name": "Ethereum",
-          "symbol": "ETH",
-          "rank": "2",
-          "price_usd": "383.64",
-          "price_btc": "0.080934",
-          "24h_volume_usd": "729729000.0",
-          "market_cap_usd": "36198220335.0",
-          "available_supply": "94354656.0",
-          "total_supply": "94354656.0",
-          "percent_change_1h": "0.41",
-          "percent_change_24h": "0.75",
-          "percent_change_7d": "18.2",
-          "last_updated": "1504213767",
-          "price_eur": "322.91515896",
-          "24h_volume_eur": "614223115.506",
-          "market_cap_eur": "30468548831.0"
-      },
-      {
-          "id": "bitcoin-cash",
-          "name": "Bitcoin Cash",
-          "symbol": "BCH",
-          "rank": "3",
-          "price_usd": "587.475",
-          "price_btc": "0.123936",
-          "24h_volume_usd": "306261000.0",
-          "market_cap_usd": "9725097867.0",
-          "available_supply": "16554063.0",
-          "total_supply": "16554063.0",
-          "percent_change_1h": "0.57",
-          "percent_change_24h": "3.85",
-          "percent_change_7d": "-7.48",
-          "last_updated": "1504213803",
-          "price_eur": "494.48593215",
-          "24h_volume_eur": "257784171.354",
-          "market_cap_eur": "8185751026.0"
-      },
-      {
-          "id": "ripple",
-          "name": "Ripple",
-          "symbol": "XRP",
-          "rank": "4",
-          "price_usd": "0.246071",
-          "price_btc": "0.00005191",
-          "24h_volume_usd": "328800000.0",
-          "market_cap_usd": "9435307516.0",
-          "available_supply": "38343841883.0",
-          "total_supply": "99994523265.0",
-          "percent_change_1h": "1.49",
-          "percent_change_24h": "9.02",
-          "percent_change_7d": "7.06",
-          "last_updated": "1504213742",
-          "price_eur": "0.2071214057",
-          "24h_volume_eur": "276755563.2",
-          "market_cap_eur": "7941830431.0"
-      },
-      {
-          "id": "litecoin",
-          "name": "Litecoin",
-          "symbol": "LTC",
-          "rank": "5",
-          "price_usd": "70.5032",
-          "price_btc": "0.0148736",
-          "24h_volume_usd": "567205000.0",
-          "market_cap_usd": "3717131920.0",
-          "available_supply": "52722882.0",
-          "total_supply": "52722882.0",
-          "percent_change_1h": "0.66",
-          "percent_change_24h": "13.22",
-          "percent_change_7d": "37.77",
-          "last_updated": "1504213745",
-          "price_eur": "59.3435304848",
-          "24h_volume_eur": "477424389.37",
-          "market_cap_eur": "3128761977.0"
-      },
-      {
-          "id": "nem",
-          "name": "NEM",
-          "symbol": "XEM",
-          "rank": "6",
-          "price_usd": "0.339218",
-          "price_btc": "0.00007156",
-          "24h_volume_usd": "22792100.0",
-          "market_cap_usd": "3052962000.0",
-          "available_supply": "8999999999.0",
-          "total_supply": "8999999999.0",
-          "percent_change_1h": "1.81",
-          "percent_change_24h": "16.33",
-          "percent_change_7d": "30.03",
-          "last_updated": "1504213762",
-          "price_eur": "0.2855245397",
-          "24h_volume_eur": "19184429.6594",
-          "market_cap_eur": "2569720857.0"
-      },
-      {
-          "id": "dash",
-          "name": "Dash",
-          "symbol": "DASH",
-          "rank": "7",
-          "price_usd": "379.348",
-          "price_btc": "0.0800285",
-          "24h_volume_usd": "34443900.0",
-          "market_cap_usd": "2854788854.0",
-          "available_supply": "7525514.0",
-          "total_supply": "7525514.0",
-          "percent_change_1h": "1.37",
-          "percent_change_24h": "3.56",
-          "percent_change_7d": "24.42",
-          "last_updated": "1504213748",
-          "price_eur": "319.302522472",
-          "24h_volume_eur": "28991912.8446",
-          "market_cap_eur": "2402915746.0"
-      },
-      {
-          "id": "iota",
-          "name": "IOTA",
-          "symbol": "MIOTA",
-          "rank": "8",
-          "price_usd": "0.869439",
-          "price_btc": "0.00018342",
-          "24h_volume_usd": "13431800.0",
-          "market_cap_usd": "2416632030.0",
-          "available_supply": "2779530283.0",
-          "total_supply": "2779530283.0",
-          "percent_change_1h": "1.05",
-          "percent_change_24h": "0.58",
-          "percent_change_7d": "0.75",
-          "last_updated": "1504213792",
-          "price_eur": "0.7318189784",
-          "24h_volume_eur": "11305734.1052",
-          "market_cap_eur": "2034113012.0"
-      },
-      {
-          "id": "monero",
-          "name": "Monero",
-          "symbol": "XMR",
-          "rank": "9",
-          "price_usd": "140.252",
-          "price_btc": "0.029588",
-          "24h_volume_usd": "139907000.0",
-          "market_cap_usd": "2106159899.0",
-          "available_supply": "15016969.0",
-          "total_supply": "15016969.0",
-          "percent_change_1h": "0.28",
-          "percent_change_24h": "7.99",
-          "percent_change_7d": "64.66",
-          "last_updated": "1504213751",
-          "price_eur": "118.052071928",
-          "24h_volume_eur": "117761680.598",
-          "market_cap_eur": "1772784273.0"
-      },
-      {
-          "id": "neo",
-          "name": "NEO",
-          "symbol": "NEO",
-          "rank": "10",
-          "price_usd": "33.025",
-          "price_btc": "0.00696707",
-          "24h_volume_usd": "52047700.0",
-          "market_cap_usd": "1651250000.0",
-          "available_supply": "50000000.0",
-          "total_supply": "100000000.0",
-          "percent_change_1h": "0.28",
-          "percent_change_24h": "-2.99",
-          "percent_change_7d": "-19.88",
-          "last_updated": "1504213775",
-          "price_eur": "27.79760485",
-          "24h_volume_eur": "43809277.7578",
-          "market_cap_eur": "1389880243.0"
+})
+// --------------------------------------------------------------------- sortData
+const EventEmitter = require('events')
+const mainEv = new EventEmitter()
+let openQrys = 0
+let compQrys = 0
+let sortedData = []
+let sortTemp = []
+mainEv.on('sortData', (arg) => {
+  mainWindow.webContents.send('sortData',arg)
+  console.log(arg.tab + ': ' + arg.status)
+  if (arg.status == 'qry') openQrys++
+  if (arg.status == 'ok') compQrys++
+  if (openQrys == compQrys) {
+    mainWindow.webContents.send('sortData',{tab: 'all qrys', status:'ok'})
+    sectors.forEach((se) => {
+      if (se.psec == null) {
+        let temp = se
+        temp.items = []
+        sortedData[se.id] = temp
       }
-  ];
+    })
+    sectors.forEach((se) => {
+      if (Number.isInteger(se.psec)) {
+        let temp = se
+        temp.items = []
+        sortedData[se.psec].items[se.id] = temp
+      }
+    })
+    let sortedin = []
+    cusec.forEach((cs) => {
+      if (Number.isInteger( sectors[cs.secid].psec) && cuinfo[cmcCurrencies[cs.cuid].ident] != null ) {
+       let temp = cmcCurrencies[cs.cuid]
+        temp.price_usd = cuinfo[temp.ident].price_usd
+        temp.market_cap_usd = cuinfo[temp.ident].market_cap_usd 
+        temp['24h_volume_usd'] = cuinfo[temp.ident]['24h_volume_usd']
+        temp.percent_change_24h = cuinfo[temp.ident].percent_change_24h
+        temp.rank = cuinfo[temp.ident].rank
+        temp.sector = [sectors[cs.secid].psec, cs.secid]
+        sortedData[sectors[cs.secid].psec].items[cs.secid].items.push(temp)
+        sortedin[cs.cuid] = 1
+      }
+    })
+    cusec.forEach((cs) => {
+      if (sectors[cs.secid].psec == null && sortedin[cs.cuid] != 1 && cuinfo[cmcCurrencies[cs.cuid].ident] != null)  {
+        let temp = cmcCurrencies[cs.cuid]
+        if(cuinfo[temp.ident]) {
+          temp.price_usd = cuinfo[temp.ident].price_usd
+          temp.market_cap_usd = cuinfo[temp.ident].market_cap_usd
+          temp['24h_volume_usd'] = cuinfo[temp.ident]['24h_volume_usd']
+          temp.percent_change_24h = cuinfo[temp.ident].percent_change_24h
+          temp.rank = cuinfo[temp.ident].rank
+          temp.sector = cs.secid
+        }
+        sortedData[cs.secid].items.push(temp)
+      }
+    })
+    console.log(sortedData)
+    mainWindow.webContents.send('sortDataOK',sortedData)
+    
+    openQrys = 0
+    compQrys = 0
+    dataRun = false
+  }
+})
+// --------------------------------------------------------------------- getData
+let cmcCurrencies = []
+let cuinfo = {}
+let cusec = []
+let sectors = []
+let secgrp = []
+let secgroups = []
+let dataRun = false
+function getData() {
+  if (!dataRun) {
+    dataRun = true
+    let qry = "SELECT * FROM currencies"
+    mainEv.emit('sortData',{tab: 'currencies', status:'qry'})
+    connection.query(qry, function (error, results, fields) {
+      if (error) throw error
+      results.forEach((result) => {
+        cmcCurrencies[result.id] = {
+          id: result.id,  
+          ident: result.ident,  
+          name: result.name,
+          symbol: result.symbol          
+        }
+      })
+      mainEv.emit('sortData',{tab: 'currencies', status:'ok'})
+    })
+    qry = "SELECT * FROM cuinfo"
+    mainEv.emit('sortData',{tab: 'cuinfo', status:'qry'})
+    connection.query(qry, function (error, results, fields) {
+      if (error) throw error
+      cuinfo = results
 
-  mainWindow.webContents.send('cmcccurrencies', cmcCurrencies);
-  //event.sender.send(‘manipulatedData’, manData);
-});
+      results.forEach((result) => {
+        cuinfo[result.ident] = {
+          price_usd: result.price_usd,  
+          market_cap_usd: result.market_cap_usd,  
+          '24h_volume_usd': result['24h_volume_usd'],
+          percent_change_24h: result.percent_change_24h,
+          rank: result.rank         
+        }
+      })
+      mainEv.emit('sortData',{tab: 'cuinfo', status:'ok'})
+    })
+    qry = "SELECT * FROM cusec"
+    mainEv.emit('sortData',{tab: 'cusec', status:'qry'})
+    connection.query(qry, function (error, results, fields) {
+      if (error) throw error
+      cusec = results
+      mainEv.emit('sortData',{tab: 'cusec', status:'ok'})
+    })
+    qry = "SELECT * FROM sectors"
+    mainEv.emit('sortData',{tab: 'sectors', status:'qry'})
+    connection.query(qry, function (error, results, fields) {
+      if (error) throw error
+      results.forEach((result) => {
+        sectors[result.id] = {
+          id: result.id,  
+          ident: result.ident,  
+          name: result.name,
+          note: result.note,
+          rank: result.rank,
+          psec: result.psec
+        }
+      })
+      mainEv.emit('sortData',{tab: 'sectors', status:'ok'})
+    })
+    qry = "SELECT * FROM secgrp"
+    mainEv.emit('sortData',{tab: 'secgrp', status:'qry'})
+    connection.query(qry, function (error, results, fields) {
+      if (error) throw error
+      secgrp = results
+      mainEv.emit('sortData',{tab: 'secgrp', status:'ok'})
+    })
+    qry = "SELECT * FROM secgroups ORDER BY prio"
+    mainEv.emit('sortData',{tab: 'secgroups', status:'qry'})
+    connection.query(qry, function (error, results, fields) {
+      if (error) throw error
+      results.forEach((result) => {
+        secgroups[result.id] = {
+          id: result.id,  
+          ident: result.ident,  
+          name: result.name,
+          note: result.note,
+          prio: result.prio
+        }
+      })
+      
+      mainEv.emit('sortData',{tab: 'secgroups', status:'ok'})
+    })
+  }
+}
+
+ipcMain.on('cmc-go', function(event, arg) {
+  if (sortedData.length > 0) {
+    mainWindow.webContents.send('sortDataOK',sortedData)
+  } else {
+    getData()
+  }
+})
+
+ipcMain.on('newSector', function(event, arg) {
+
+  let temp = String(arg[1])
+  temp = temp.replace(/(?!\w)./g, '').toLowerCase()
+  let qry = "INSERT INTO sectors (ident,name,psec,prio) VALUES (?)"
+  
+  connection.query(qry, [[temp,arg[1],arg[0],2]], function (error, results, fields) {
+    if (error) throw error
+    sortedData[arg[0]].items.unshift({
+      id: results.insertId,  
+      ident: temp,  
+      items: [],
+      name: arg[1],
+      note: '',
+      rank: '',
+      psec: arg[0]
+    })
+    mainWindow.webContents.send('sortDataOK',sortedData)
+  })
+
+})
+
+ipcMain.on('moveItem', function(event, fromTo) {
+  if (!Array.isArray(fromTo[0])) {
+    let index = null
+    let sec = null
+    let newsec = null;
+    sortedData.forEach((cd, i ) => {
+      if (cd.id == fromTo[0]) cd.items.forEach((item,idx) => {
+        if (item.id == fromTo[2]) {
+          index = idx
+          sec = i
+        }
+      })
+    })
+    sortedData.forEach((cd, i ) => {
+      if (cd.id == fromTo[1][0]) cd.items.forEach((item,idx) => {
+        if (item.id == fromTo[1][1] && sortedData[i].items[idx].items) {
+          sortedData[i].items[idx].items.push(sortedData[sec].items[index])
+          
+          newsec = item.id;
+        }
+      })
+    })
+    sortedData[sec].items.splice(index,1)
+
+    //cusec.forEach((cs, i) => {  })
+
+    let qry = "INSERT INTO cusec (secid,cuid) VALUES (" + newsec + "," + fromTo[2] + ")"
+    
+    connection.query(qry, function (error, results, fields) {
+      if (error) throw error
+      console.log('ok')
+    })
+
+  } else {
+    let index = null
+    let sec = null
+    let newsec = null;
+    sortedData.forEach((cd, i ) => {
+      if (cd.id == fromTo[0][0]) cd.items.forEach((item,idx) => {
+        if (Array.isArray(item.items) && item.id == fromTo[0][1]) item.items.forEach((subitem,indx) => {
+          if (subitem.id == fromTo[2]) {
+            index = indx
+            sec = [i,idx]
+          }
+        })
+      })
+    })
+    
+    sortedData.forEach((cd, i ) => {
+      if (Array.isArray(cd.items) && cd.id == fromTo[1][0]) cd.items.forEach((item,idx) => {
+        if (Array.isArray(item.items) && item.id == fromTo[1][1] && sortedData[i].items[idx].items) {
+          let temp = sortedData[sec[0]].items[sec[1]].items[index]
+          temp.sector=[cd.id,item.id]
+          sortedData[i].items[idx].items.push(temp)
+          newsec = item.id;
+  
+        }
+      })
+    })
+    sortedData[sec[0]].items[sec[1]].items.splice(index,1)
+    let qry = "UPDATE cusec SET secid=?, cuid=? WHERE secid = ? AND cuid = ?"
+    
+    connection.query(qry,[[newsec],[fromTo[2]],[fromTo[0][1]],[fromTo[2]]], function (error, results, fields) {
+      if (error) throw error
+      console.log('ok')
+    })
+
+
+  }
+})
+// --------------------------------------------------------------------- cmc 
+
+/* const bittrex = require('node.bittrex.api')
+bittrex.options({
+  'apikey' : '...',
+  'apisecret' : '... ', 
+})
+var CoinMarketCap = require("node-coinmarketcap")
+var options = {
+  events: true, // Enable event system
+  refresh: 120, // Refresh time in seconds (Default: 60)
+  convert: "EUR" // Convert price to different currencies. (Default USD)
+}
+var coinmarketcap = new CoinMarketCap(options)
+*/
+
+/*
+let cmcCurrencies = []
+let cmcTikcker = []
+let cmcCurrencies2 = []
+
+ipcMain.on('cmc-go', function(event, arg) {
+  if (cmcCurrencies2.length > 0) {
+    mainWindow.webContents.send('cmcccurrencies', cmcCurrencies2)
+  } else {
+    cmcCurrencies2 = [{category:'currency', name:'Currencies', market_cap_usd:'', volume_24h_usd:'', data:[]}, {category:'asset', name:'Assets', market_cap_usd:'', volume_24h_usd:'', data:[]}]
+    let qry = "SELECT * FROM currencies"
+    //let inserts = ['users', 'id', userId]
+    //sql = mysql.format(sql, inserts)
+
+    connection.query(qry, function (error, results, fields) {
+      if (error) throw error
+      cmcCurrencies = results
+      
+      let qry = "SELECT * FROM cuinfo"
+      connection.query(qry, function (error, results, fields) {
+        if (error) throw error
+      
+      
+        let qry = "SELECT * FROM cuinfo"
+        connection.query(qry, function (error, results, fields) {
+          if (error) throw error
+          
+          cmcCurrencies.forEach(function (item, index) {
+            for (var c = 0 c < results.length c++) {
+              if (results[c].symbol == item.symbol) {
+                //console.log(results[c].rank)
+                let pos = {currency: 0, asset: 1}
+                if (results[c].rank > 0) {
+                  cmcCurrencies2[pos[item.category]].data.push({
+                    ident: item.ident, 
+                    name: item.name, 
+                    symbol: item.symbol, 
+                    category: item.category, 
+                    rank: results[c].rank,
+                    price_usd: results[c].price_usd,
+                    price_btc: results[c].price_btc,
+                    "24h_volume_usd": results[c]['24h_volume_usd'],
+                    market_cap_usd: results[c].market_cap_usd,
+                    available_supply: results[c].available_supply, 
+                    total_supply: results[c].total_supply, 
+                    percent_change_1h: results[c].percent_change_1h,
+                    percent_change_24h: results[c].percent_change_24h,
+                    percent_change_7d: results[c].percent_change_7d,
+                    last_updated: results[c].last_updated
+                  })
+                  console.log(pos[item.category])
+                  cmcCurrencies2[pos[item.category]].market_cap_usd = Number(cmcCurrencies2[pos[item.category]].market_cap_usd) + Number(results[c].market_cap_usd)
+                  cmcCurrencies2[pos[item.category]].volume_24h_usd = Number(cmcCurrencies2[pos[item.category]].volume_24h_usd) + Number(results[c]['24h_volume_usd'])
+                }
+
+                break
+              }
+              
+            } 
+            
+          })
+          mainWindow.webContents.send('cmcccurrencies', cmcCurrencies2)
+          
+        })
+      })
+      //results.forEach(function (result) {console.log(result.insertId)})
+      
+    })
+    
+    
+     
+  }
+   
+  //event.sender.send(‘manipulatedData’, manData)
+})
+*/
+
 /*
 coinmarketcap.on("BTC", (coin) => {
-  console.log(coin);
-});
+  console.log(coin)
+})
 coinmarketcap.on("NEO", (coin) => {
-  console.log(coin);
-});
+  console.log(coin)
+})
 */
-//setInterval(function () { mainWindow.webContents.send('blabla', {bla: 'blaaaa'}); },5000);
+//setInterval(function () { mainWindow.webContents.send('blabla', {bla: 'blaaaa'}) },5000)
 /*
 bittrex.getmarkethistory({ market : 'BTC-NEO' }, function( data, err ) {
-  mainWindow.webContents.send('bittrex-hist', data.result);
-  //console.log( data.result );
-});
+  mainWindow.webContents.send('bittrex-hist', data.result)
+  //console.log( data.result )
+})
 
 var websocketsclient = bittrex.websockets.subscribe(['BTC-NEO'], function(data) {
   if (data.M === 'updateExchangeState') {
     data.A.forEach(function(data_for) {
-      mainWindow.webContents.send('bittrex', data_for);
+      mainWindow.webContents.send('bittrex', data_for)
       
-    //console.log('Market Update for '+ data_for.MarketName, data_for);
-    });
+    //console.log('Market Update for '+ data_for.MarketName, data_for)
+    })
   } else {
-    console.log(data);
+    console.log(data)
   } 
-});
+})
 */
 
 
